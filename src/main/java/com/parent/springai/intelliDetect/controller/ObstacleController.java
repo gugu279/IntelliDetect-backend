@@ -1,9 +1,9 @@
 package com.parent.springai.intellidetect.controller;
 
-import com.parent.springai.intellidetect.dto.AccidentDTO;
-import com.parent.springai.intellidetect.dto.DisplayInfoDTO;
-import com.parent.springai.intellidetect.entity.Accident;
-import com.parent.springai.intellidetect.service.AccidentService;
+import com.parent.springai.intellidetect.dto.ObstacleDTO;
+import com.parent.springai.intellidetect.dto.StatusUpdateDTO;
+import com.parent.springai.intellidetect.entity.Obstacle;
+import com.parent.springai.intellidetect.service.ObstacleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -12,26 +12,35 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/accidents")
+@RequestMapping("/api/v1/obstacles")
 @CrossOrigin(origins = "*")
-public class AccidentController {
+public class ObstacleController {
     
     @Autowired
-    private AccidentService accidentService;
+    private ObstacleService obstacleService;
     
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createAccident(@RequestBody AccidentDTO accidentDTO) {
+    public ResponseEntity<Map<String, Object>> createObstacle(@RequestBody ObstacleDTO obstacleDTO) {
         try {
-            Long accidentId = accidentService.createAccident(
-                accidentDTO.getVideoUrl(),
-                accidentDTO.getImageUrl(),
-                accidentDTO.getAccidentDescription(),
-                accidentDTO.getAccidentDescriptionText(),
-                accidentDTO.getAccidentDescriptionTime(),
-                accidentDTO.getAccidentDescriptionState()
+            // 从 CoordinatesDTO 中提取经纬度
+            Double latitude = obstacleDTO.getCoordinates() != null ? 
+                obstacleDTO.getCoordinates().getLatitude() : null;
+            Double longitude = obstacleDTO.getCoordinates() != null ? 
+                obstacleDTO.getCoordinates().getLongitude() : null;
+            
+            Long obstacleId = obstacleService.createObstacle(
+                obstacleDTO.getImageUrl(),
+                obstacleDTO.getLocation(),
+                obstacleDTO.getType(),
+                obstacleDTO.getHeight(),
+                obstacleDTO.getDistance(),
+                obstacleDTO.getRiskLevel(),
+                latitude,
+                longitude
             );
             
             Map<String, Object> response = new HashMap<>();
@@ -39,7 +48,7 @@ public class AccidentController {
             response.put("message", "创建成功");
             
             Map<String, Object> data = new HashMap<>();
-            data.put("id", accidentId);
+            data.put("id", obstacleId);
             response.put("data", data);
             
             return ResponseEntity.ok(response);
@@ -51,15 +60,15 @@ public class AccidentController {
         }
     }
     
-    @PutMapping("/{id}/display")
-    public ResponseEntity<Map<String, Object>> updateDisplayInfo(@PathVariable Long id, 
-                                                               @RequestBody DisplayInfoDTO displayInfoDTO) {
+    @PutMapping("/{id}/status")
+    public ResponseEntity<Map<String, Object>> updateObstacleStatus(@PathVariable Long id, 
+                                                                  @RequestBody StatusUpdateDTO statusUpdateDTO) {
         try {
-            accidentService.updateDisplayInfo(id, displayInfoDTO.getDisplayInfo());
+            obstacleService.updateObstacleStatus(id, statusUpdateDTO.getStatus());
             
             Map<String, Object> response = new HashMap<>();
             response.put("code", 200);
-            response.put("message", "更新成功");
+            response.put("message", "状态更新成功");
             
             Map<String, Object> data = new HashMap<>();
             data.put("id", id);
@@ -75,23 +84,23 @@ public class AccidentController {
     }
     
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAccidents(
+    public ResponseEntity<Map<String, Object>> getObstacles(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
             Pageable pageable = PageRequest.of(page - 1, size);
-            Page<Accident> accidentPage = accidentService.getAccidents(pageable);
+            Page<Obstacle> obstaclePage = obstacleService.getObstacles(pageable);
             
             Map<String, Object> response = new HashMap<>();
             response.put("code", 200);
             response.put("message", "查询成功");
             
             Map<String, Object> data = new HashMap<>();
-            data.put("total", accidentPage.getTotalElements());
-            data.put("records", accidentPage.getContent());
+            data.put("total", obstaclePage.getTotalElements());
+            data.put("records", obstaclePage.getContent());
             data.put("page", page);
             data.put("size", size);
-            data.put("totalPages", accidentPage.getTotalPages());
+            data.put("totalPages", obstaclePage.getTotalPages());
             response.put("data", data);
             
             return ResponseEntity.ok(response);
@@ -104,14 +113,14 @@ public class AccidentController {
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getAccidentById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getObstacleById(@PathVariable Long id) {
         try {
-            Accident accident = accidentService.getAccidentById(id);
+            Obstacle obstacle = obstacleService.getObstacleById(id);
             
             Map<String, Object> response = new HashMap<>();
             response.put("code", 200);
             response.put("message", "查询成功");
-            response.put("data", accident);
+            response.put("data", obstacle);
             
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
@@ -123,14 +132,33 @@ public class AccidentController {
     }
     
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getAccidentStats() {
+    public ResponseEntity<Map<String, Object>> getObstacleStats() {
         try {
-            Map<String, Long> stats = accidentService.getAccidentStats();
+            Map<String, Long> stats = obstacleService.getObstacleStats();
             
             Map<String, Object> response = new HashMap<>();
             response.put("code", 200);
             response.put("message", "查询成功");
             response.put("data", stats);
+            
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("code", 400);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    @GetMapping("/high-risk")
+    public ResponseEntity<Map<String, Object>> getHighRiskObstacles() {
+        try {
+            List<Obstacle> highRiskObstacles = obstacleService.getHighRiskObstacles();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("code", 200);
+            response.put("message", "查询成功");
+            response.put("data", highRiskObstacles);
             
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {

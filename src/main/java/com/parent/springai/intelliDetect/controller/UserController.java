@@ -1,3 +1,4 @@
+// UserController.java 保持不变，但为了完整性，这里重新提供
 package com.parent.springai.intellidetect.controller;
 
 import com.parent.springai.intellidetect.dto.LoginDTO;
@@ -22,14 +23,15 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody LoginDTO loginDTO) {
         try {
-            Long userId = userService.login(loginDTO.getUname(), loginDTO.getPasswor());
+            User user = userService.login(loginDTO.getUname(), loginDTO.getPasswor());
             
             Map<String, Object> response = new HashMap<>();
             response.put("code", 200);
             response.put("message", "登录成功");
             
             Map<String, Object> data = new HashMap<>();
-            data.put("id", userId);
+            data.put("token", "obstacle-token-" + user.getId()); // 简化的token生成
+            data.put("user", user);
             response.put("data", data);
             
             return ResponseEntity.ok(response);

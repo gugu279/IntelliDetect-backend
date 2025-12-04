@@ -48,12 +48,12 @@ public class UserServiceImpl implements UserService {
     }
     
     @Override
-    public Long login(String username, String password) {
+    public User login(String username, String password) {
         Optional<User> userOptional = userRepository.findByUsername(username);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
             if (verifyPassword(password, user.getPassword())) {
-                return user.getId();
+                return user; // 返回整个用户对象
             }
         }
         throw new RuntimeException("用户名或密码错误");
